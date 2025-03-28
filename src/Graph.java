@@ -2,140 +2,153 @@ import java.io.*;
 import java.util.*;
 
 public class Graph {
-    private Map<String, List<String>> artistsGraph = new HashMap<>();
-    private Map<String, List<Integer>> mentionsGraph = new HashMap<>();
-    private Map<String, Double> artistCost = new HashMap<>();
+    private final Map<Integer, Artist> artistsById = new HashMap<>();
+    private final Map<String, Artist> artistsByName = new HashMap<>();
 
-    // Constructeur qui charge les fichiers artists.txt et mentions.txt
     public Graph(String artistsFile, String mentionsFile) {
-        try {
-            // Charger le graphe des artistes
-            BufferedReader br = new BufferedReader(new FileReader(artistsFile));
+        loadArtists(artistsFile);
+        loadMentions(mentionsFile);
+    }
+
+    private void loadArtists(String filename) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-                String artist = parts[1].replaceAll("\"", "").trim();
-                String[] categories = parts[2].split(";");
-                artistsGraph.computeIfAbsent(artist, k -> new ArrayList<>());
-                for (String category : categories) {
-                    artistsGraph.get(artist).add(category);
-                }
-                artistCost.put(artist, Math.random() * 10); // Exemple de coût aléatoire
-            }
-            br.close();
+                String[] parts = line.split(",", 3);
+                if (parts.length < 3) continue;
 
-            // Charger le graphe des mentions
-            br = new BufferedReader(new FileReader(mentionsFile));
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-                String artist = parts[0];
-                int mentionId = Integer.parseInt(parts[1]);
-                mentionsGraph.computeIfAbsent(artist, k -> new ArrayList<>()).add(mentionId);
+                int id = Integer.parseInt(parts[0]);
+                String name = parts[1].replace("\"", "").trim();
+                String category = parts[2].split(";")[0]; // Prend la première catégorie
+
+                Artist artist = new Artist(id, name, category, new HashMap<>());
+                artistsById.put(id, artist);
+                artistsByName.put(name, artist);
             }
-            br.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Trouver le chemin le plus court avec le coût total et la longueur du chemin
-    public void trouverCheminLePlusCourt(String start, String end) {
-        Map<String, String> parentMap = new HashMap<>();
-        Queue<String> queue = new LinkedList<>();
-        Set<String> visited = new HashSet<>();
-        Map<String, Double> totalCost = new HashMap<>();
-        totalCost.put(start, 0.0);
+    private void loadMentions(String filename) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length < 3) continue;
 
-        queue.add(start);
-        visited.add(start);
+                int sourceId = Integer.parseInt(parts[0]);
+                int targetId = Integer.parseInt(parts[1]);
+                int mentionCount = Integer.parseInt(parts[2]);
+                double weight = 1.0 / mentionCount;
 
-        while (!queue.isEmpty()) {
-            String current = queue.poll();
-            if (current.equals(end)) {
-                List<String> path = new ArrayList<>();
-                double totalPathCost = totalCost.get(end);
-                while (parentMap.containsKey(current)) {
-                    path.add(current);
-                    current = parentMap.get(current);
-                }
-                path.add(start);
-                Collections.reverse(path);
+                Artist source = artistsById.get(sourceId);
+                Artist target = artistsById.get(targetId);
 
-                // Afficher le résultat
-                System.out.println("Longueur du chemin : " + path.size());
-                System.out.println("Coût total du chemin : " + totalPathCost);
-                System.out.println("Chemin :");
-                for (String artist : path) {
-                    // Vérification si l'artiste existe dans le Map artistCost
-                    Double cost = artistCost.get(artist);
-                    if (cost == null) {
-                        cost = 0.0;  // Attribuer un coût par défaut si l'artiste n'a pas de coût
-                    }
-                    System.out.println(artist + " (" + String.join(";", artistsGraph.get(artist)) + ")");
-                }
-                return;
-            }
-
-            for (String neighbor : artistsGraph.getOrDefault(current, new ArrayList<>())) {
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    parentMap.put(neighbor, current);
-
-                    // Récupérer le coût de l'artiste voisin
-                    Double currentCost = artistCost.getOrDefault(current, 0.0);
-                    Double neighborCost = artistCost.getOrDefault(neighbor, 0.0);
-                    totalCost.put(neighbor, totalCost.get(current) + neighborCost);
-                    queue.add(neighbor);
+                if (source != null && target != null) {
+                    source.getMentions().put(target, weight);
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        System.out.println("Aucun chemin trouvé.");
     }
 
+    public void trouverCheminLePlusCourt(String startName, String endName) {
+        Artist start = artistsByName.get(startName);
+        Artist end = artistsByName.get(endName);
 
-    // Trouver le chemin avec le plus de mentions
-    public void trouverCheminMaxMentions(String start, String end) {
-        Map<String, String> parentMap = new HashMap<>();
-        Queue<String> queue = new LinkedList<>();
-        Set<String> visited = new HashSet<>();
-        Map<String, Integer> mentionCount = new HashMap<>();
-        mentionCount.put(start, 0);
+        if (start == null || end == null) {
+            throw new RuntimeException("Aucun chemin entre " + startName + " et " + endName);
+        }
+
+        Map<Artist, Artist> predecessors = new HashMap<>();
+        Map<Artist, Integer> distances = new HashMap<>();
+        Queue<Artist> queue = new LinkedList<>();
 
         queue.add(start);
-        visited.add(start);
+        distances.put(start, 0);
 
         while (!queue.isEmpty()) {
-            String current = queue.poll();
-            if (current.equals(end)) {
-                List<String> path = new ArrayList<>();
-                while (parentMap.containsKey(current)) {
-                    path.add(current);
-                    current = parentMap.get(current);
-                }
-                path.add(start);
-                Collections.reverse(path);
+            Artist current = queue.poll();
 
-                // Afficher le résultat
-                System.out.println("Longueur du chemin : " + path.size());
-                System.out.println("Coût total du chemin : " + mentionCount.get(end) / 10.0); // Exemple de coût basé sur le nombre de mentions
-                System.out.println("Chemin :");
-                for (String artist : path) {
-                    System.out.println(artist + " (" + String.join(";", artistsGraph.get(artist)) + ")");
-                }
+            if (current.equals(end)) {
+                printPath(start, end, predecessors, distances.get(end), false);
                 return;
             }
 
-            for (String neighbor : artistsGraph.getOrDefault(current, new ArrayList<>())) {
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    parentMap.put(neighbor, current);
-                    mentionCount.put(neighbor, mentionCount.get(current) + 1);
+            for (Artist neighbor : current.getMentions().keySet()) {
+                if (!distances.containsKey(neighbor)) {
+                    distances.put(neighbor, distances.get(current) + 1);
+                    predecessors.put(neighbor, current);
                     queue.add(neighbor);
                 }
             }
         }
 
-        System.out.println("Aucun chemin trouvé.");
+        throw new RuntimeException("Aucun chemin entre " + startName + " et " + endName);
+    }
+
+    public void trouverCheminMaxMentions(String startName, String endName) {
+        Artist start = artistsByName.get(startName);
+        Artist end = artistsByName.get(endName);
+
+        if (start == null || end == null) {
+            throw new RuntimeException("Aucun chemin entre " + startName + " et " + endName);
+        }
+
+        Map<Artist, Artist> predecessors = new HashMap<>();
+        Map<Artist, Double> totalWeights = new HashMap<>();
+        PriorityQueue<Artist> queue = new PriorityQueue<>(
+                Comparator.comparingDouble(a -> totalWeights.getOrDefault(a, Double.POSITIVE_INFINITY))
+        );
+
+        queue.add(start);
+        totalWeights.put(start, 0.0);
+
+        while (!queue.isEmpty()) {
+            Artist current = queue.poll();
+
+            if (current.equals(end)) {
+                printPath(start, end, predecessors, totalWeights.get(end), true);
+                return;
+            }
+
+            for (Map.Entry<Artist, Double> entry : current.getMentions().entrySet()) {
+                Artist neighbor = entry.getKey();
+                double newWeight = totalWeights.get(current) + entry.getValue();
+
+                if (newWeight < totalWeights.getOrDefault(neighbor, Double.POSITIVE_INFINITY)) {
+                    totalWeights.put(neighbor, newWeight);
+                    predecessors.put(neighbor, current);
+                    queue.add(neighbor);
+                }
+            }
+        }
+
+        throw new RuntimeException("Aucun chemin entre " + startName + " et " + endName);
+    }
+
+    private void printPath(Artist start, Artist end,
+                           Map<Artist, Artist> predecessors,
+                           double totalCost,
+                           boolean isWeighted) {
+        List<Artist> path = new ArrayList<>();
+        Artist current = end;
+
+        while (!current.equals(start)) {
+            path.add(current);
+            current = predecessors.get(current);
+        }
+        path.add(start);
+        Collections.reverse(path);
+
+        System.out.println("Longueur du chemin : " + (path.size() - 1));
+        System.out.printf("Coût total du chemin : %.6f\n", totalCost);
+        System.out.println("Chemin :");
+        for (Artist artist : path) {
+            System.out.println(artist.getName() + " (" + artist.getCategory() + ")");
+        }
+        System.out.println("--------------------------");
     }
 }
