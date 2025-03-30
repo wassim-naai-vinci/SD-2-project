@@ -3,11 +3,12 @@ import java.util.Objects;
 
 public class Artist {
 
-    private final int id;
-    private final String name;
-    private final String category;
-    private final Map<Artist,Double> mentions;
+    private  int id;
+    private  String name;
+    private  String category;
+    private  Map<Artist,Double> mentions;
 
+    //Wassim c'est le constructeur
     public Artist(int id, String name, String category, Map<Artist, Double> mentions) {
         this.id = id;
         this.name = name;
@@ -15,6 +16,7 @@ public class Artist {
         this.mentions = mentions;
     }
 
+    //Tous les getters
     public int getId() {
         return id;
     }
@@ -31,7 +33,6 @@ public class Artist {
         return mentions;
     }
 
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
@@ -39,16 +40,14 @@ public class Artist {
         return id == artist.id;
     }
 
-    @Override
     public int hashCode() {
         return Objects.hash(id);
     }
 
+
     @Override
     public String toString() {
-        return "Artist{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
+        return "Artist{" + "id=" + id + ", name='" + name + '\'' +
                 ", category='" + category + '\'' +
                 ", mentions=" + mentions +
                 '}';

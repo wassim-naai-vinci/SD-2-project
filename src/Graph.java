@@ -2,30 +2,34 @@ import java.io.*;
 import java.util.*;
 
 public class Graph {
-    private final Map<Integer, Artist> artistsById = new HashMap<>();
-    private final Map<String, Artist> artistsByName = new HashMap<>();
+    private Map<Integer, Artist> artistById = new HashMap<>();
+
+    private Map<String, Artist> artistsByName = new HashMap<>();
 
     public Graph(String artistsFile, String mentionsFile) {
         loadArtists(artistsFile);
         loadMentions(mentionsFile);
     }
 
-    private void loadArtists(String filename) {
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",", 3);
-                if (parts.length < 3) continue;
 
-                int id = Integer.parseInt(parts[0]);
-                String name = parts[1].replace("\"", "").trim();
-                String category = parts[2].split(";")[0]; // Prend la première catégorie
+    private void loadArtists(String filename) {
+        try (BufferedReader bufferedReader
+                     = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                String[] partss = line.split(",", 3);
+                if (partss.length < 3) continue;
+
+                int id = Integer.parseInt(partss[0]);
+                String name = partss[1].replace("\"", "").trim();
+                String category = partss[2].split(";")[0]; // Prend la première catégorie
 
                 Artist artist = new Artist(id, name, category, new HashMap<>());
-                artistsById.put(id, artist);
+                artistById.put(id, artist);
                 artistsByName.put(name, artist);
             }
         } catch (IOException e) {
+            System.out.println("Erreur lors de la lecteur de : " + filename);
             e.printStackTrace();
         }
     }
@@ -42,14 +46,16 @@ public class Graph {
                 int mentionCount = Integer.parseInt(parts[2]);
                 double weight = 1.0 / mentionCount;
 
-                Artist source = artistsById.get(sourceId);
-                Artist target = artistsById.get(targetId);
+                Artist source = artistById.get(sourceId);
+                Artist target = artistById.get(targetId);
 
                 if (source != null && target != null) {
                     source.getMentions().put(target, weight);
                 }
+
             }
         } catch (IOException e) {
+            System.out.println("Erreur lors de la lecture de  " + filename + ": " + e);
             e.printStackTrace();
         }
     }
@@ -64,16 +70,17 @@ public class Graph {
 
         Map<Artist, Artist> predecessors = new HashMap<>();
         Map<Artist, Integer> distances = new HashMap<>();
-        Queue<Artist> queue = new LinkedList<>();
 
-        queue.add(start);
+        Queue<Artist> queueArtist = new LinkedList<>();
+
+        queueArtist.add(start);
         distances.put(start, 0);
 
-        while (!queue.isEmpty()) {
-            Artist current = queue.poll();
+        while (!queueArtist.isEmpty()) {
+            Artist current = queueArtist.poll();
 
             if (current.equals(end)) {
-                printPath(start, end, predecessors, distances.get(end), false);
+                printOutpout(start, end, predecessors, distances.get(end), false);
                 return;
             }
 
@@ -81,7 +88,7 @@ public class Graph {
                 if (!distances.containsKey(neighbor)) {
                     distances.put(neighbor, distances.get(current) + 1);
                     predecessors.put(neighbor, current);
-                    queue.add(neighbor);
+                    queueArtist.add(neighbor);
                 }
             }
         }
@@ -91,6 +98,7 @@ public class Graph {
 
     public void trouverCheminMaxMentions(String startName, String endName) {
         Artist start = artistsByName.get(startName);
+
         Artist end = artistsByName.get(endName);
 
         if (start == null || end == null) {
@@ -110,7 +118,7 @@ public class Graph {
             Artist current = queue.poll();
 
             if (current.equals(end)) {
-                printPath(start, end, predecessors, totalWeights.get(end), true);
+                printOutpout(start, end, predecessors, totalWeights.get(end), true);
                 return;
             }
 
@@ -129,10 +137,10 @@ public class Graph {
         throw new RuntimeException("Aucun chemin entre " + startName + " et " + endName);
     }
 
-    private void printPath(Artist start, Artist end,
-                           Map<Artist, Artist> predecessors,
-                           double totalCost,
-                           boolean isWeighted) {
+    private void printOutpout(Artist start, Artist end,
+                              Map<Artist, Artist> predecessors,
+                              double totalCost,
+                              boolean weighted) {
         List<Artist> path = new ArrayList<>();
         Artist current = end;
 
@@ -149,6 +157,6 @@ public class Graph {
         for (Artist artist : path) {
             System.out.println(artist.getName() + " (" + artist.getCategory() + ")");
         }
-        System.out.println("--------------------------");
+        System.out.println("-------------------------");
     }
 }
